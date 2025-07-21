@@ -80,7 +80,7 @@
                 <tr>
                     <th>Container Name</th>
                     <th>Status</th>
-                    <th>Uptime</th>
+                    <th>Start Time</th>
                 </tr>
             </thead>
             <tbody>
@@ -98,23 +98,9 @@
                     </td>
                     <td>
                         {% if container.present and container.started_at %}
-                            {% set started = container.started_at | to_datetime %}
-                            {% set now = ansible_date_time.iso8601 | to_datetime %}
-                            {% set delta = (now - started).total_seconds()|int %}
-                            {% set days = (delta // 86400) %}
-                            {% set hours = ((delta % 86400) // 3600) %}
-                            {% set minutes = ((delta % 3600) // 60) %}
-                            {% if days > 0 %}
-                                {{ days }}d {{ hours }}h {{ minutes }}m
-                            {% elif hours > 0 %}
-                                {{ hours }}h {{ minutes }}m
-                            {% elif minutes > 0 %}
-                                {{ minutes }}m
-                            {% else %}
-                                <1m
-                            {% endif %}
+                          {{ container.started_at | to_datetime | strftime("%Y-%m-%d %H:%M:%S") }}
                         {% else %}
-                            N/A
+                          N/A
                         {% endif %}
                     </td>
                 </tr>
