@@ -2,9 +2,8 @@
 - name: AAP 2.5 Container Health Check Playbook
   hosts: all
   gather_facts: yes
-  
+
   vars:
-    # Define expected containers per component type
     expected_containers:
       platform_gateway:
         - redis-tcp
@@ -32,86 +31,70 @@
         - automation-eda-activation-worker-1
         - automation-eda-activation-worker-2
         - automation-eda-scheduler
-    
-    # Email configuration
+
     smtp_server: "your.smtp.server.com"
     smtp_port: 25
     from_email: "aap-monitoring@yourcompany.com"
     to_email: ["admin@yourcompany.com"]
-    
-    # Report configuration
+
     report_title: "AAP 2.5 Container Health Check Report"
-    
+
   tasks:
-    - name: Initialize host results
-      set_fact:
-        host_results: 
-          host: "{{ inventory_hostname }}"
-          component_type: "{{ group_names[0] }}"
-          containers: []
-          missing_containers: []
-          down_containers: []
-          healthy_containers: []
-          status: "unknown"
-    
     - name: Get all running containers
       containers.podman.podman_container_info:
       register: container_info
-    
-    - name: Process container information
+
+    - name: Make list of running container names
       set_fact:
-        running_container_names: "{{ container_info.containers | map(attribute='Names') | list | flatten }}"
-        container_details: "{{ container_info.containers | map('dict2items') | list }}"
-    
+        running_container_names: "{{ container_info.containers | map(attribute='Name') | list }}"
+
     - name: Determine component type and expected containers
       set_fact:
         component_type: "{{ group_names[0] }}"
         expected_container_list: "{{ expected_containers[group_names[0]] | default([]) }}"
-    
-    - name: Check each expected container
+
+    - name: Check expected containers and collect status
       set_fact:
         container_status: "{{ container_status | default([]) + [item_status] }}"
       vars:
         container_present: "{{ item in running_container_names }}"
-        container_data: "{{ container_info.containers | selectattr('Names', 'contains', item) | list | first | default({}) }}"
+        container_data: "{{ container_info.containers | selectattr('Name', 'equalto', item) | list | first | default({}) }}"
         container_state: "{{ container_data.State.Status | default('not found') if container_present else 'not found' }}"
-        container_health: "{{ container_data.State.Health.Status | default('no healthcheck') if container_present and container_data.State.Health is defined else 'no healthcheck' }}"
         item_status:
           name: "{{ item }}"
           present: "{{ container_present }}"
           state: "{{ container_state }}"
-          health: "{{ container_health }}"
-          uptime: "{{ container_data.State.StartedAt | default('unknown') if container_present else 'unknown' }}"
+          started_at: "{{ container_data.State.StartedAt | default('') if container_present else '' }}"
       loop: "{{ expected_container_list }}"
-    
+
     - name: Categorize container statuses
       set_fact:
         healthy_containers: "{{ container_status | selectattr('present', 'equalto', true) | selectattr('state', 'equalto', 'running') | list }}"
         down_containers: "{{ container_status | selectattr('present', 'equalto', true) | rejectattr('state', 'equalto', 'running') | list }}"
         missing_containers: "{{ container_status | rejectattr('present', 'equalto', true) | list }}"
-    
+
     - name: Determine overall host status
       set_fact:
         host_status: "{{ 'CRITICAL' if (missing_containers | length > 0 or down_containers | length > 0) else 'HEALTHY' }}"
-    
+
     - name: Update host results
       set_fact:
-        host_results: 
+        host_results:
           host: "{{ inventory_hostname }}"
           component_type: "{{ component_type }}"
-          containers: "{{ container_status | default([]) }}"
+          containers: "{{ container_status }}"
           missing_containers: "{{ missing_containers }}"
           down_containers: "{{ down_containers }}"
           healthy_containers: "{{ healthy_containers }}"
           status: "{{ host_status }}"
           timestamp: "{{ ansible_date_time.iso8601 }}"
-    
+
     - name: Store results on localhost
       set_fact:
         all_host_results: "{{ all_host_results | default([]) + [host_results] }}"
       delegate_to: localhost
       delegate_facts: true
-    
+
   post_tasks:
     - name: Generate HTML report
       template:
@@ -121,7 +104,7 @@
       run_once: true
       vars:
         report_data: "{{ hostvars['localhost']['all_host_results'] }}"
-    
+
     - name: Send HTML email report
       community.general.mail:
         host: "{{ smtp_server }}"
