@@ -89,11 +89,25 @@
           status: "{{ host_status }}"
           timestamp: "{{ ansible_date_time.iso8601 }}"
 
-    - name: Store results on localhost
+    - name: Gather all host results into a list (excluding bastion)
       set_fact:
-        all_host_results: "{{ all_host_results | default([]) + [host_results] }}"
+        all_host_results: >-
+          {{
+           (groups['all']
+           | difference(groups['bastion'] | default([])))
+           | map('extract', hostvars, 'host_report_result')
+           | select('defined')
+           | list
+          }}
       delegate_to: localhost
-      delegate_facts: true
+      run_once: true
+
+
+    # - name: Store results on localhost
+    #   set_fact:
+    #     all_host_results: "{{ all_host_results | default([]) + [host_results] }}"
+    #   delegate_to: localhost
+    #   delegate_facts: true
 
   post_tasks:
     - name: Generate HTML report
