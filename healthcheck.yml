@@ -169,6 +169,16 @@
 #   set_fact:
 #     uptime_delta: "{{ now() - (container_data.State.StartedAt | to_datetime) }}"
 
+
+{% if container.present and container.started_at %}
+  {{ (now() - (container.started_at.split('.')[0] + 'Z') | to_datetime).days }}d
+  {{ ((now() - (container.started_at.split('.')[0] + 'Z') | to_datetime).seconds // 3600) }}h
+  {{ (((now() - (container.started_at.split('.')[0] + 'Z') | to_datetime).seconds // 60) % 60) }}m
+  {{ ((now() - (container.started_at.split('.')[0] + 'Z') | to_datetime).seconds % 60) }}s
+{% else %}
+  N/A
+{% endif %}
+
 # - name: Set human-readable uptime with seconds
 #   set_fact:
 #     uptime: "{{ uptime_delta.days }}d {{ (uptime_delta.seconds // 3600) }}h {{ ((uptime_delta.seconds // 60) % 60) }}m {{ (uptime_delta.seconds % 60) }}s"
