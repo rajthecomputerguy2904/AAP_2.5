@@ -1,6 +1,6 @@
 ---
 - name: AAP 2.5 Container Health Check Playbook
-  hosts: all
+  hosts: all:!bastion
   gather_facts: yes
 
   vars:
@@ -44,6 +44,10 @@
       containers.podman.podman_container_info:
       register: container_info
 
+    - name: Record current time for uptime calculation
+      set_fact:
+        aap_now_time: "{{ ansible_date_time.iso8601 }}"
+
     - name: Make list of running container names
       set_fact:
         running_container_names: "{{ container_info.containers | map(attribute='Name') | list }}"
@@ -53,18 +57,41 @@
         component_type: "{{ group_names[0] }}"
         expected_container_list: "{{ expected_containers[group_names[0]] | default([]) }}"
 
-    - name: Check expected containers and collect status
+    - name: Check expected containers and collect status (with uptime calc only)
       set_fact:
         container_status: "{{ container_status | default([]) + [item_status] }}"
       vars:
         container_present: "{{ item in running_container_names }}"
         container_data: "{{ container_info.containers | selectattr('Name', 'equalto', item) | list | first | default({}) }}"
         container_state: "{{ container_data.State.Status | default('not found') if container_present else 'not found' }}"
+        started_at_raw: "{{ container_data.State.StartedAt | default('') if container_present else '' }}"
+        uptime: >-
+          {% if container_present and started_at_raw %}
+            {% set now = aap_now_time | regex_replace('Z$', '') %}
+            {% set now_dt = now[:19] | to_datetime('%Y-%m-%dT%H:%M:%S') %}
+            {% set started = started_at_raw | regex_replace('Z$', '') %}
+            {% set started_dt = started[:19] | to_datetime('%Y-%m-%dT%H:%M:%S') %}
+            {% set delta = (now_dt - started_dt).total_seconds()|int %}
+            {% set days = (delta // 86400) %}
+            {% set hours = ((delta % 86400) // 3600) %}
+            {% set minutes = ((delta % 3600) // 60) %}
+            {% if days > 0 %}
+              {{ days }}d {{ hours }}h {{ minutes }}m
+            {% elif hours > 0 %}
+              {{ hours }}h {{ minutes }}m
+            {% elif minutes > 0 %}
+              {{ minutes }}m
+            {% else %}
+              <1m
+            {% endif %}
+          {% else %}
+            N/A
+          {% endif %}
         item_status:
           name: "{{ item }}"
           present: "{{ container_present }}"
           state: "{{ container_state }}"
-          started_at: "{{ container_data.State.StartedAt | default('') if container_present else '' }}"
+          uptime: "{{ uptime | trim }}"
       loop: "{{ expected_container_list }}"
 
     - name: Categorize container statuses
@@ -89,27 +116,26 @@
           status: "{{ host_status }}"
           timestamp: "{{ ansible_date_time.iso8601 }}"
 
+    - name: Save host results for aggregation
+      set_fact:
+        host_report_result: "{{ host_results }}"
+      delegate_to: localhost
+      delegate_facts: true
+
+  post_tasks:
     - name: Gather all host results into a list (excluding bastion)
       set_fact:
         all_host_results: >-
           {{
-           (groups['all']
-           | difference(groups['bastion'] | default([])))
-           | map('extract', hostvars, 'host_report_result')
-           | select('defined')
-           | list
+            (groups['all']
+            | difference(groups['bastion'] | default([])))
+            | map('extract', hostvars, 'host_report_result')
+            | select('defined')
+            | list
           }}
       delegate_to: localhost
       run_once: true
 
-
-    # - name: Store results on localhost
-    #   set_fact:
-    #     all_host_results: "{{ all_host_results | default([]) + [host_results] }}"
-    #   delegate_to: localhost
-    #   delegate_facts: true
-
-  post_tasks:
     - name: Generate HTML report
       template:
         src: aap_health_report.j2
@@ -117,7 +143,7 @@
       delegate_to: localhost
       run_once: true
       vars:
-        report_data: "{{ hostvars['localhost']['all_host_results'] }}"
+        report_data: "{{ all_host_results }}"
 
     - name: Send HTML email report
       community.general.mail:
@@ -131,7 +157,7 @@
         charset: utf8
       delegate_to: localhost
       run_once: true
-      when: hostvars['localhost']['all_host_results'] is defined
+      when: all_host_results is defined
 
     - name: Clean up temporary report file
       file:
