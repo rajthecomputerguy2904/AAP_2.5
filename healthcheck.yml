@@ -165,3 +165,10 @@
         state: absent
       delegate_to: localhost
       run_once: true
+# - name: Convert container start time to uptime delta
+#   set_fact:
+#     uptime_delta: "{{ now() - (container_data.State.StartedAt | to_datetime) }}"
+
+# - name: Set human-readable uptime with seconds
+#   set_fact:
+#     uptime: "{{ uptime_delta.days }}d {{ (uptime_delta.seconds // 3600) }}h {{ ((uptime_delta.seconds // 60) % 60) }}m {{ (uptime_delta.seconds % 60) }}s"
