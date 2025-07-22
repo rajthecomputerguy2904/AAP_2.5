@@ -1,98 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>{{ report_title }}</title>
+  <meta charset="UTF-8">
+  <title>{{ report_title }}</title>
 </head>
-<body style="font-family: Arial, sans-serif; margin:0; padding:20px; background:#f5f5f5;">
-<div style="max-width:900px; margin:0 auto; background:white; padding:20px; border-radius:8px;">
-    <!-- HEADER -->
-    <div style="text-align:center; color:#333; border-bottom:2px solid #e0e0e0; padding-bottom:12px; margin-bottom:26px;">
-        <h1 style="font-size:22px; margin:0 0 7px 0;">{{ report_title }}</h1>
-        <p style="margin:0; font-size:13px; color:#666;">Generated on: {{ ansible_date_time.date }} {{ ansible_date_time.time }}</p>
-    </div>
+<body style="font-family: Arial, sans-serif; margin:0; padding: 0; background:#f5f5f5;">
+<div style="max-width:980px; margin:32px auto; background:white; border-radius:12px; padding: 28px 32px;">
 
-    <!-- SUMMARY CARDS -->
-    <div style="display:flex; flex-wrap:wrap; gap:13px; margin-bottom:20px;">
-        <div style="flex:1 1 120px; padding:12px 0; border-radius:6px; text-align:center; background:#28a745; color:white;">
-            <div style="font-size:24px; font-weight: bold;">{{ report_data | selectattr('status', 'equalto', 'HEALTHY') | list | length }}</div>
-            <div style="margin-top:1px; font-size:13px;">Healthy Hosts</div>
-        </div>
-        <div style="flex:1 1 120px; padding:12px 0; border-radius:6px; text-align:center; background:#dc3545; color:white;">
-            <div style="font-size:24px; font-weight: bold;">{{ report_data | selectattr('status', 'equalto', 'CRITICAL') | list | length }}</div>
-            <div style="margin-top:1px; font-size:13px;">Critical Hosts</div>
-        </div>
-        <div style="flex:1 1 120px; padding:12px 0; border-radius:6px; text-align:center; background:#17a2b8; color:white;">
-            <div style="font-size:24px; font-weight: bold;">{{ report_data | map(attribute='healthy_containers') | list | flatten | length }}</div>
-            <div style="margin-top:1px; font-size:13px;">Running Containers</div>
-        </div>
-        <div style="flex:1 1 120px; padding:12px 0; border-radius:6px; text-align:center; background:#ffc107; color:#212529;">
-            <div style="font-size:24px; font-weight: bold;">
-            {{
-                (report_data | map(attribute='down_containers') | list | flatten | length)
-                + (report_data | map(attribute='missing_containers') | list | flatten | length)
-            }}</div>
-            <div style="margin-top:1px; font-size:13px;">Problem Containers</div>
-        </div>
+  <!-- HEADER -->
+  <div style="text-align:center; color:#222;">
+    <h1 style="font-size:2.3em; font-weight:700; margin-bottom:7px; margin-top:3px;">{{ report_title }}</h1>
+    <div style="font-size: 1.05em; margin-bottom:18px; color:#555;">
+      Generated on: Tuesday, July 22, 2025, 11:14 AM IST
     </div>
-    
-    {# NO ISSUES MESSAGE #}
-    {% if (report_data | selectattr('status', 'equalto', 'CRITICAL') | list | length) == 0 %}
-        <div style="text-align: center; color: #28a745; font-size: 18px; font-weight: bold; padding: 28px;">
-            ✅ All AAP 2.5 components are healthy!<br>
-            No missing or down containers detected.
-        </div>
-    {% endif %}
+  </div>
+  <hr style="border:none; border-top:2px solid #eee; margin:26px 0 18px 0;">
 
-    {# HOST SECTIONS #}
-    {% for host_data in report_data | sort(attribute='status', reverse=true) %}
+  <!-- SUMMARY CARDS, email-safe -->
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:32px;">
+    <tr>
+      <td align="center" style="width:20%;">
+        <div style="background:#28a745; color:white; border-radius:8px; padding:16px 0 10px 0; margin:0 6px;">
+          <div style="font-size:2.1em; font-weight:bold; margin-bottom:4px;">
+            {{ report_data | selectattr('status', 'equalto', 'HEALTHY') | list | length }}
+          </div>
+          <div style="font-size:1em;">Healthy Hosts</div>
+        </div>
+      </td>
+      <td align="center" style="width:20%;">
+        <div style="background:#dc3545; color:white; border-radius:8px; padding:16px 0 10px 0; margin:0 6px;">
+          <div style="font-size:2.1em; font-weight:bold; margin-bottom:4px;">
+            {{ report_data | selectattr('status', 'equalto', 'CRITICAL') | list | length }}
+          </div>
+          <div style="font-size:1em;">Critical Hosts</div>
+        </div>
+      </td>
+      <td align="center" style="width:20%;">
+        <div style="background:#17a2b8; color:white; border-radius:8px; padding:16px 0 10px 0; margin:0 6px;">
+          <div style="font-size:2.1em; font-weight:bold; margin-bottom:4px;">
+            {{ report_data | map(attribute='healthy_containers') | list | flatten | length }}
+          </div>
+          <div style="font-size:1em;">Running Containers</div>
+        </div>
+      </td>
+      <td align="center" style="width:20%;">
+        <div style="background:#ffc107; color:#212529; border-radius:8px; padding:16px 0 10px 0; margin:0 6px;">
+          <div style="font-size:2.1em; font-weight:bold; margin-bottom:4px;">
+          {{
+            (report_data | map(attribute='down_containers') | list | flatten | length)
+            + (report_data | map(attribute='missing_containers') | list | flatten | length)
+          }}</div>
+          <div style="font-size:1em;">Problem Containers</div>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  {% for host_data in report_data | sort(attribute='status', reverse=true) %}
     {% set banner_bg = '#28a745' if host_data.status == 'HEALTHY' else '#dc3545' %}
-    <div style="margin-bottom:18px; border:1px solid #e0e0e0; border-radius:6px; overflow: hidden;">
-        <div style="padding: 10px 15px; font-weight:bold; color:white; background:{{ banner_bg }}; font-size:15px;">
-            <span>{{ host_data.host.upper() }}</span>
-            <span style="float: right;">{{ host_data.component_type | title }} - {{ host_data.status }}</span>
-        </div>
-        {% if host_data.containers | length > 0 %}
-        <table style="width:100%; border-collapse:collapse;">
-            <thead>
-                <tr>
-                    <th style="padding:7px 10px; text-align:left; background:#f8f9fa; font-size:13px; font-weight:600;">Container Name</th>
-                    <th style="padding:7px 10px; text-align:left; background:#f8f9fa; font-size:13px; font-weight:600;">Status</th>
-                    <th style="padding:7px 10px; text-align:left; background:#f8f9fa; font-size:13px; font-weight:600;">Start Time</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for container in host_data.containers %}
-                <tr style="background-color:#fcfcfc;">
-                    <td style="padding:6px 10px; border-bottom:1px solid #e0e0e0;">{{ container.name }}</td>
-                    <td style="padding:6px 10px; border-bottom:1px solid #e0e0e0;">
-                        {% if not container.present %}
-                            <span style="background:#fff3cd; color:#856404; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">Missing</span>
-                        {% elif container.state == 'running' %}
-                            <span style="background:#d4edda; color:#155724; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">Running</span>
-                        {% else %}
-                            <span style="background:#f8d7da; color:#721c24; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">{{ container.state | title }}</span>
-                        {% endif %}
-                    </td>
-                    <td style="padding:6px 10px; border-bottom:1px solid #e0e0e0;">
-                        {% if container.present and container.started_at %}
-                          {{ container.started_at | to_datetime | strftime("%Y-%m-%d %H:%M:%S") }}
-                        {% else %}
-                          N/A
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% endif %}
+    <div style="margin-bottom: 32px; border-radius:8px; overflow:hidden;">
+      <div style="font-weight:bold; color:white; background:{{ banner_bg }};
+        font-size:1.1em; padding:12px 18px 12px 18px;">
+        <span>{{ host_data.host.upper() }}</span>
+        <span style="float:right;">{{ host_data.component_type | title }} - {{ host_data.status }}</span>
+      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; background:white;">
+        <thead>
+          <tr style="background:#f8f9fa;">
+            <th align="left" style="padding:12px 10px; font-size:1em; font-weight:bold; border-bottom:2px solid #e0e0e0;">
+              Container Name
+            </th>
+            <th align="left" style="padding:12px 10px; font-size:1em; font-weight:bold; border-bottom:2px solid #e0e0e0;">
+              Status
+            </th>
+            <th align="left" style="padding:12px 10px; font-size:1em; font-weight:bold; border-bottom:2px solid #e0e0e0;">
+              Start Time
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for container in host_data.containers %}
+          <tr style="background-color: #fff;">
+            <td style="padding:9px 10px; border-bottom:1px solid #e0e0e0;">{{ container.name }}</td>
+            <td style="padding:9px 10px; border-bottom:1px solid #e0e0e0;">
+              {% if not container.present %}
+                <span style="background:#fff3cd; color:#856404; padding:2px 14px; border-radius:6px; font-size:1em; font-weight:600;">
+                  Missing
+                </span>
+              {% elif container.state == 'running' %}
+                <span style="background:#d4edda; color:#155724; padding:2px 14px; border-radius:6px; font-size:1em; font-weight:600;">
+                  Running
+                </span>
+              {% else %}
+                <span style="background:#f8d7da; color:#721c24; padding:2px 14px; border-radius:6px; font-size:1em; font-weight:600;">
+                  {{ container.state | title }}
+                </span>
+              {% endif %}
+            </td>
+            <td style="padding:9px 10px; border-bottom:1px solid #e0e0e0;">
+              {% if container.present and container.started_at %}
+                {{ container.started_at | to_datetime | strftime("%Y-%m-%d %H:%M:%S") }}
+              {% else %}
+                N/A
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    {% endfor %}
+  {% endfor %}
 
-    <div style="margin-top:22px; padding-top:8px; color:#666; font-size:12px; text-align:left;">
-        Report generated by Ansible AAP 2.5 Container Health Check Playbook<br>
-        Total Hosts Checked: {{ report_data | length }}
-    </div>
+  <div style="padding-top:18px; color:#666; font-size:12px; text-align:left;">
+      Report generated by Ansible AAP 2.5 Container Health Check Playbook<br>
+      Total Hosts Checked: {{ report_data | length }}
+  </div>
 </div>
 </body>
 </html>
