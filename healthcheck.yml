@@ -145,19 +145,24 @@
       vars:
         report_data: "{{ all_host_results }}"
 
-    - name: Send HTML email report
-      community.general.mail:
-        host: "{{ smtp_server }}"
-        port: "{{ smtp_port }}"
-        subject: "{{ report_title }} - {{ ansible_date_time.date }}"
-        body: "{{ lookup('file', '/tmp/aap_health_report_' + ansible_date_time.epoch + '.html') }}"
-        from: "{{ from_email }}"
-        to: "{{ to_email }}"
-        subtype: html
-        charset: utf8
-      delegate_to: localhost
-      run_once: true
-      when: all_host_results is defined
+- name: Send HTML email report
+  community.general.mail:
+    host: "{{ smtp_server }}"
+    port: "{{ smtp_port }}"
+    subject: "{{ report_title }} - {{ ansible_date_time.date }}"
+    body: "{{ lookup('file', '/tmp/aap_health_report_' + ansible_date_time.epoch + '.html') }}"
+    from: "{{ from_email }}"
+    to: "{{ to_email }}"
+    subtype: html
+    charset: utf8
+  delegate_to: localhost
+  run_once: true
+  when: 
+    - all_host_results is defined
+    - all_host_results | selectattr('status','equalto','CRITICAL') | list | length > 0
+      or all_host_results | selectattr('down_containers','defined') | selectattr('down_containers','length') | list | length > 0
+      or all_host_results | selectattr('missing_containers','defined') | selectattr('missing_containers','length') | list | length > 0
+
 
     - name: Clean up temporary report file
       file:
