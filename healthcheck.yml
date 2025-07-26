@@ -211,17 +211,23 @@
       {%- endif -%}
 
 
-      - name: Combine ig_group_names and igstatus into job_test_results list (simple)
+- name: Set global health_check_failed if any container or job test failed
   set_fact:
-    job_test_results: >-
-      {{ 
-         ig_group_names 
-         | map('extract', igstatus, default='unknown') 
-         | zip(ig_group_names) 
-         | map('reverse') 
-         | map('combine') 
-         | list 
+    health_check_failed: >-
+      {{ 'health_check_failed'
+         if (
+           (all_host_results | selectattr('status', 'equalto', 'CRITICAL') | list | length > 0)
+           or (all_host_results | selectattr('down_containers','defined') | selectattr('down_containers','length') | list | length > 0)
+           or (all_host_results | selectattr('missing_containers','defined') | selectattr('missing_containers','length') | list | length > 0)
+           or (
+             igstatus is defined and 
+             (igstatus.values() | map('lower') | select('ne', 'successful') | list | length > 0)
+           )
+         )
+         else omit
       }}
+  delegate_to: localhost
+  run_once: true
 
 
 
