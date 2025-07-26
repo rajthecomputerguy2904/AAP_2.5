@@ -12,11 +12,11 @@
         </tr>
       </thead>
       <tbody>
-        {% for job in job_test_results %}
+        {% for group, status in job_test_results.items() %}
           <tr style="background:#fcfcfc;">
-            <td style="padding:7px 12px; border-bottom:1px solid #e0e0e0;">{{ job.instance_group | upper }}</td>
+            <td style="padding:7px 12px; border-bottom:1px solid #e0e0e0;">{{ group | upper }}</td>
             <td style="padding:7px 12px; border-bottom:1px solid #e0e0e0;">
-              {% set stat = job.status | lower %}
+              {% set stat = status | lower %}
               {% if stat in ['success', 'successful', 'successfull', 'ok', 'passed'] %}
                 <span style="background:#28a745; color:white; padding:2px 16px; border-radius:4px; font-size:13px; font-weight:bold;">OK</span>
               {% else %}
