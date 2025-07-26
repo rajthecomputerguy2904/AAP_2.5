@@ -136,6 +136,25 @@
       delegate_to: localhost
       run_once: true
 
+- name: Set global health failure fact if any host or job test fails
+  set_fact:
+    health_check_failed: "{{ 'health_check_failed' if
+      (
+        (
+          all_host_results | selectattr('status','equalto','CRITICAL') | list | length > 0
+          or all_host_results | selectattr('down_containers', 'defined') | selectattr('down_containers','length') | list | length > 0
+          or all_host_results | selectattr('missing_containers', 'defined') | selectattr('missing_containers','length') | list | length > 0
+        )
+        or
+        (
+          job_test_results is defined and
+          job_test_results | selectattr('status', 'lower') | select('ne', 'ok') | list | length > 0
+        )
+      )
+      else omit
+    }}"
+  delegate_to: localhost
+  run_once: true
     - name: Generate HTML report
       template:
         src: aap_health_report.j2
