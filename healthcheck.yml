@@ -211,6 +211,20 @@
       {%- endif -%}
 
 
+      - name: Combine ig_group_names and igstatus into job_test_results list (simple)
+  set_fact:
+    job_test_results: >-
+      {{ 
+         ig_group_names 
+         | map('extract', igstatus, default='unknown') 
+         | zip(ig_group_names) 
+         | map('reverse') 
+         | map('combine') 
+         | list 
+      }}
+
+
+
 # - name: Set human-readable uptime with seconds
 #   set_fact:
 #     uptime: "{{ uptime_delta.days }}d {{ (uptime_delta.seconds // 3600) }}h {{ ((uptime_delta.seconds // 60) % 60) }}m {{ (uptime_delta.seconds % 60) }}s"
