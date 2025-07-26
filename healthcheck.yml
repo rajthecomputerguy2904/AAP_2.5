@@ -189,19 +189,27 @@
         state: absent
       delegate_to: localhost
       run_once: true
-# - name: Convert container start time to uptime delta
-#   set_fact:
-#     uptime_delta: "{{ now() - (container_data.State.StartedAt | to_datetime) }}"
 
 
-{% if container.present and container.started_at %}
-  {{ (now() - (container.started_at.split('.')[0] + 'Z') | to_datetime).days }}d
-  {{ ((now() - (container.started_at.split('.')[0] + 'Z') | to_datetime).seconds // 3600) }}h
-  {{ (((now() - (container.started_at.split('.')[0] + 'Z') | to_datetime).seconds // 60) % 60) }}m
-  {{ ((now() - (container.started_at.split('.')[0] + 'Z') | to_datetime).seconds % 60) }}s
-{% else %}
-  N/A
-{% endif %}
+
+- set_fact:
+    container_uptime: >-
+      {%- set start = container_start_time | to_datetime('%Y-%m-%d %H:%M:%S') -%}
+      {%- set now = ansible_date_time.iso8601 | regex_replace('Z$', '') | to_datetime('%Y-%m-%dT%H:%M:%S') -%}
+      {%- set delta = (now - start).total_seconds() | int -%}
+      {%- set days = (delta // 86400) -%}
+      {%- set hours = ((delta % 86400) // 3600) -%}
+      {%- set minutes = ((delta % 3600) // 60) -%}
+      {%- if days > 0 -%}
+        {{ days }}d {{ hours }}h {{ minutes }}m
+      {%- elif hours > 0 -%}
+        {{ hours }}h {{ minutes }}m
+      {%- elif minutes > 0 -%}
+        {{ minutes }}m
+      {%- else -%}
+        <1m
+      {%- endif -%}
+
 
 # - name: Set human-readable uptime with seconds
 #   set_fact:
