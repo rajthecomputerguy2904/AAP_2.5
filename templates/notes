@@ -29,3 +29,14 @@
     </table>
   </div>
 {% endif %}
+
+
+- name: Determine whether to send email
+  set_fact:
+    should_send_mail: >-
+      {{ true
+         if send_mail
+            or health_check_failed == 'health_check_failed'
+         else false }}
+  delegate_to: localhost
+  run_once: true
